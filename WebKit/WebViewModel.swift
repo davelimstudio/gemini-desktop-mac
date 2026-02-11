@@ -75,6 +75,27 @@ class WebViewModel {
         wkWebView.reload()
     }
 
+    func openNewChat() {
+        let script = """
+        (function() {
+            const event = new KeyboardEvent('keydown', {
+                key: 'O',
+                code: 'KeyO',
+                keyCode: 79,
+                which: 79,
+                shiftKey: true,
+                metaKey: true,
+                bubbles: true,
+                cancelable: true,
+                composed: true
+            });
+            document.activeElement.dispatchEvent(event);
+            document.dispatchEvent(event);
+        })();
+        """
+        wkWebView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     // MARK: - Zoom
 
     func zoomIn() {

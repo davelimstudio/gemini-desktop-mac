@@ -263,6 +263,44 @@ class ChatBarPanel: NSPanel, NSWindowDelegate {
         orderOut(nil)
     }
 
+    /// Handle CMD+N to open a new Gemini chat
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) &&
+           !event.modifierFlags.contains(.shift) &&
+           !event.modifierFlags.contains(.option) &&
+           event.charactersIgnoringModifiers == "n" {
+            openNewChat()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    /// Triggers a new chat by emulating Shift+Cmd+O (Google's shortcut)
+    private func openNewChat() {
+        guard let webView = webView else { return }
+        let script = """
+        (function() {
+            const event = new KeyboardEvent('keydown', {
+                key: 'O',
+                code: 'KeyO',
+                keyCode: 79,
+                which: 79,
+                shiftKey: true,
+                metaKey: true,
+                bubbles: true,
+                cancelable: true,
+                composed: true
+            });
+            document.activeElement.dispatchEvent(event);
+            document.dispatchEvent(event);
+        })();
+        """
+        webView.evaluateJavaScript(script) { [weak self] _, _ in
+            // Reset to initial size since we're starting a new chat
+            self?.resetToInitialSize()
+        }
+    }
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 }
