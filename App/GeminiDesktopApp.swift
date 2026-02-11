@@ -122,6 +122,9 @@ struct GeminiDesktopApp: App {
     }
 
     init() {
+        // Apply saved theme on launch
+        AppTheme.current.apply()
+
         KeyboardShortcuts.onKeyDown(for: .bringToFront) { [self] in
             coordinator.toggleChatBar()
         }
