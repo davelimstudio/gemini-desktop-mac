@@ -31,6 +31,15 @@ struct GeminiDesktopApp: App {
         .defaultSize(width: Constants.mainWindowDefaultWidth, height: Constants.mainWindowDefaultHeight)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
+            CommandGroup(replacing: .newItem) {
+                Button {
+                    coordinator.openNewChat()
+                } label: {
+                    Label("New Chat", systemImage: "plus")
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+
             CommandGroup(after: .toolbar) {
                 Button {
                     coordinator.goBack()
