@@ -109,6 +109,20 @@ class AppCoordinator {
         }
     }
 
+    func toggleChatBarNewChat() {
+        if let bar = chatBar, bar.isVisible {
+            hideChatBar()
+        } else {
+            showChatBarWithNewChat()
+        }
+    }
+
+    func showChatBarWithNewChat() {
+        showChatBar()
+        webViewModel.openNewChat()
+        chatBar?.resetToInitialSize()
+    }
+
     func expandToMainWindow() {
         // Capture the screen where the chat bar is located before hiding it
         let targetScreen = chatBar.flatMap { bar -> NSScreen? in

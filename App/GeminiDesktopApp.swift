@@ -135,7 +135,7 @@ struct GeminiDesktopApp: App {
         AppTheme.current.apply()
 
         KeyboardShortcuts.onKeyDown(for: .bringToFront) { [self] in
-            coordinator.toggleChatBar()
+            coordinator.toggleChatBarNewChat()
         }
     }
 }
