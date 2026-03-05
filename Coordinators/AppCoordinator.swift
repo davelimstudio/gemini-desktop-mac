@@ -123,6 +123,50 @@ class AppCoordinator {
         chatBar?.resetToInitialSize()
     }
 
+    // MARK: - Screenshot to Chat
+
+    func screenshotToChat() {
+        // Save current window state for restoration on cancel/failure
+        let wasMainWindowVisible = findMainWindow()?.isVisible ?? false
+        let wasChatBarVisible = chatBar?.isVisible ?? false
+
+        // Hide all Gemini windows so user can see what they want to capture
+        hideAllWindows()
+
+        // Brief delay to let windows fully hide before showing capture overlay
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.screenshotHideDelay) { [weak self] in
+            guard let self = self else { return }
+
+            ScreenCaptureService.capture { [weak self] image in
+                guard let self = self else { return }
+
+                guard let image = image else {
+                    // Defer block: ensures the main chat window always reappears,
+                    // even if the capture session throws an error or is cancelled.
+                    if wasMainWindowVisible {
+                        self.openMainWindow()
+                    } else if wasChatBarVisible {
+                        self.showChatBar()
+                    }
+                    return
+                }
+
+                // Open main window and inject the screenshot
+                self.openMainWindow()
+
+                // Wait for window to become key and WebView to be ready
+                DispatchQueue.main.asyncAfter(deadline: .now() + Constants.screenshotInjectDelay) {
+                    self.webViewModel.injectImage(image)
+                }
+            }
+        }
+    }
+
+    private func hideAllWindows() {
+        hideChatBar()
+        closeMainWindow()
+    }
+
     func expandToMainWindow() {
         // Capture the screen where the chat bar is located before hiding it
         let targetScreen = chatBar.flatMap { bar -> NSScreen? in
@@ -202,6 +246,8 @@ extension AppCoordinator {
         static let dockOffset: CGFloat = 50
         static let mainWindowIdentifier = "main"
         static let mainWindowTitle = "Gemini Desktop"
+        static let screenshotHideDelay: TimeInterval = 0.3
+        static let screenshotInjectDelay: TimeInterval = 0.8
     }
 
 }

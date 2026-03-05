@@ -35,6 +35,11 @@ struct SettingsView: View {
                     Spacer()
                     KeyboardShortcuts.Recorder(for: .bringToFront)
                 }
+                HStack {
+                    Text("Screenshot to Chat:")
+                    Spacer()
+                    KeyboardShortcuts.Recorder(for: .screenshotToChat)
+                }
             }
             Section("Appearance") {
                 HStack {

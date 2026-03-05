@@ -96,6 +96,93 @@ class WebViewModel {
         wkWebView.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    // MARK: - Image Injection
+
+    /// Maximum base64 size to inject. Prevents the WebView bridge from choking
+    /// on massive string evaluations. ~30MB of base64 ≈ ~22MB PNG.
+    private static let maxBase64Size = 30_000_000
+    private static let maxInjectRetries = 5
+    private static let injectRetryDelay: TimeInterval = 0.5
+
+    /// Injects an image directly into the Gemini chat input via JavaScript.
+    /// Does NOT use the clipboard — the image data is passed as a named argument
+    /// to `callAsyncJavaScript`, which prevents any injection vulnerability.
+    func injectImage(_ image: NSImage, retryCount: Int = 0) {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:])
+        else {
+            print("[WebViewModel] Failed to convert image to PNG")
+            return
+        }
+
+        let base64 = pngData.base64EncodedString()
+
+        // Guard: Cap size to prevent the WebView bridge from hanging on massive payloads.
+        guard base64.count < Self.maxBase64Size else {
+            print("[WebViewModel] Image too large to inject (\(base64.count) chars, max \(Self.maxBase64Size))")
+            return
+        }
+
+        // Validate: Ensure base64 contains only safe characters [A-Za-z0-9+/=]
+        let safeCharSet = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        guard base64.unicodeScalars.allSatisfy({ safeCharSet.contains($0) }) else {
+            print("[WebViewModel] Base64 validation failed — unexpected characters detected")
+            return
+        }
+
+        // External dependency: This relies on the web app accepting synthetic 'paste' events.
+        // If the paste feature silently stops working after a web update, check the DOM
+        // target selectors and focus state here.
+        let script = """
+        const binary = atob(imageData);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'image/png' });
+        const file = new File([blob], 'screenshot.png', { type: 'image/png', lastModified: Date.now() });
+
+        const input = document.querySelector('rich-textarea[aria-label="Enter a prompt here"]') ||
+                      document.querySelector('[contenteditable="true"]');
+        if (!input) { return false; }
+        input.focus();
+
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt
+        });
+        input.dispatchEvent(pasteEvent);
+        return true;
+        """
+
+        wkWebView.callAsyncJavaScript(
+            script,
+            arguments: ["imageData": base64],
+            in: nil,
+            in: .page
+        ) { [weak self] result in
+            switch result {
+            case .success(let value):
+                if let success = value as? Bool, success {
+                    print("[WebViewModel] Screenshot injected successfully")
+                } else if retryCount < Self.maxInjectRetries {
+                    print("[WebViewModel] Input not ready, retrying (\(retryCount + 1)/\(Self.maxInjectRetries))...")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Self.injectRetryDelay) {
+                        self?.injectImage(image, retryCount: retryCount + 1)
+                    }
+                } else {
+                    print("[WebViewModel] Failed to inject screenshot after \(Self.maxInjectRetries) retries")
+                }
+            case .failure(let error):
+                print("[WebViewModel] JS injection error: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: - Zoom
 
     func zoomIn() {

@@ -13,6 +13,7 @@ import Combine
 // MARK: - Keyboard Shortcut Definition
 extension KeyboardShortcuts.Name {
     static let bringToFront = Self("bringToFront", default: nil)
+    static let screenshotToChat = Self("screenshotToChat", default: nil)
 }
 
 // MARK: - Main App
@@ -136,6 +137,10 @@ struct GeminiDesktopApp: App {
 
         KeyboardShortcuts.onKeyDown(for: .bringToFront) { [self] in
             coordinator.toggleChatBarNewChat()
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .screenshotToChat) { [self] in
+            coordinator.screenshotToChat()
         }
     }
 }
