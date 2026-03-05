@@ -14,6 +14,7 @@ import Combine
 extension KeyboardShortcuts.Name {
     static let bringToFront = Self("bringToFront", default: nil)
     static let screenshotToChat = Self("screenshotToChat", default: nil)
+    static let screenshot = Self("screenshot", default: nil)
 }
 
 // MARK: - Main App
@@ -141,6 +142,10 @@ struct GeminiDesktopApp: App {
 
         KeyboardShortcuts.onKeyDown(for: .screenshotToChat) { [self] in
             coordinator.screenshotToChat()
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .screenshot) { [self] in
+            coordinator.screenshotToClipboard()
         }
     }
 }

@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(UserDefaultsKeys.appTheme.rawValue) private var appTheme: String = AppTheme.system.rawValue
 
     @State private var showingResetAlert = false
+    @State private var showingPermissionAlert = false
     @State private var isClearing = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
@@ -35,10 +36,34 @@ struct SettingsView: View {
                     Spacer()
                     KeyboardShortcuts.Recorder(for: .bringToFront)
                 }
-                HStack {
-                    Text("Screenshot to Chat:")
-                    Spacer()
-                    KeyboardShortcuts.Recorder(for: .screenshotToChat)
+                if coordinator.hasScreenCapturePermission {
+                    HStack {
+                        Text("Screenshot to Chat:")
+                        Spacer()
+                        KeyboardShortcuts.Recorder(for: .screenshotToChat)
+                    }
+                    HStack {
+                        Text("Screenshot:")
+                        Spacer()
+                        KeyboardShortcuts.Recorder(for: .screenshot)
+                    }
+                } else {
+                    Button {
+                        showingPermissionAlert = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "lock.shield")
+                            Text("Unlock Additional Features")
+                        }
+                    }
+                    .alert("Enable Screenshot Features", isPresented: $showingPermissionAlert) {
+                        Button("Enable") {
+                            CGRequestScreenCaptureAccess()
+                        }
+                        Button("Not Now", role: .cancel) { }
+                    } message: {
+                        Text("Gemini Desktop can capture screenshots so you can instantly share what's on your screen with Gemini for questions, analysis, or conversation.\n\nThis requires Screen Recording permission in macOS Settings. The app only captures your screen when you press the screenshot shortcut — it never records in the background.\n\nAfter enabling, switch back to Gemini Desktop and the features will unlock automatically.")
+                    }
                 }
             }
             Section("Appearance") {

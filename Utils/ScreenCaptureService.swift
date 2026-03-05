@@ -91,6 +91,7 @@ private class CaptureSession {
     // MARK: - Lifecycle
 
     func start() {
+        // Permission is checked by the caller (AppCoordinator) before starting a capture session.
         createOverlays()
         startMouseTracking()
         installEventMonitor()

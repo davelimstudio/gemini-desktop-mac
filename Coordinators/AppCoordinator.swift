@@ -23,11 +23,62 @@ class AppCoordinator {
     var canGoBack: Bool { webViewModel.canGoBack }
     var canGoForward: Bool { webViewModel.canGoForward }
 
+    /// Whether the app has Screen Recording permission. Drives UI for screenshot features.
+    /// Auto-updates when the app becomes active (e.g., after user grants permission in System Settings).
+    private(set) var hasScreenCapturePermission: Bool = false
+    private var appActivationObserver: NSObjectProtocol?
+
     init() {
         // Observe notifications for window opening
         NotificationCenter.default.addObserver(forName: .openMainWindow, object: nil, queue: .main) { [weak self] _ in
             self?.openMainWindow()
         }
+
+        // Check permission on launch
+        checkScreenCapturePermission()
+
+        // Re-check permission every time the app becomes active (auto-unlock after user
+        // grants permission in System Settings and switches back to the app)
+        appActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.checkScreenCapturePermission()
+        }
+    }
+
+    func checkScreenCapturePermission() {
+        // CGPreflightScreenCaptureAccess() is unreliable in sandboxed apps — it returns
+        // false even after permission is granted. Instead, we check if we can see window
+        // names of other processes: without Screen Recording permission, macOS strips
+        // kCGWindowName from other apps' windows.
+        if CGPreflightScreenCaptureAccess() {
+            hasScreenCapturePermission = true
+            return
+        }
+
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else {
+            hasScreenCapturePermission = false
+            return
+        }
+
+        for info in windowList {
+            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  pid != myPID
+            else { continue }
+
+            // If we can read the window name of another process, permission is granted
+            if info[kCGWindowName as String] is String {
+                hasScreenCapturePermission = true
+                return
+            }
+        }
+
+        hasScreenCapturePermission = false
     }
 
     // MARK: - Navigation
@@ -126,6 +177,7 @@ class AppCoordinator {
     // MARK: - Screenshot to Chat
 
     func screenshotToChat() {
+        guard hasScreenCapturePermission else { return }
         // Save current window state for restoration on cancel/failure
         let wasMainWindowVisible = findMainWindow()?.isVisible ?? false
         let wasChatBarVisible = chatBar?.isVisible ?? false
@@ -165,6 +217,37 @@ class AppCoordinator {
     private func hideAllWindows() {
         hideChatBar()
         closeMainWindow()
+    }
+
+    // MARK: - Screenshot to Clipboard
+
+    func screenshotToClipboard() {
+        guard hasScreenCapturePermission else { return }
+        let wasMainWindowVisible = findMainWindow()?.isVisible ?? false
+        let wasChatBarVisible = chatBar?.isVisible ?? false
+
+        hideAllWindows()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.screenshotHideDelay) { [weak self] in
+            guard let self = self else { return }
+
+            ScreenCaptureService.capture { [weak self] image in
+                guard let self = self else { return }
+
+                if let image = image {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.writeObjects([image])
+                }
+
+                // Restore previous window state
+                if wasMainWindowVisible {
+                    self.openMainWindow()
+                } else if wasChatBarVisible {
+                    self.showChatBar()
+                }
+            }
+        }
     }
 
     func expandToMainWindow() {
