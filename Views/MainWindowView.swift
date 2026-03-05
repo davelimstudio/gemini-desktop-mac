@@ -43,6 +43,13 @@ struct MainWindowView: View {
                     }
                     .help("Minimize to Prompt Panel")
                 }
+
+                ToolbarItem(placement: .primaryAction) {
+                    SettingsLink {
+                        Image(systemName: "gearshape")
+                    }
+                    .help("Settings")
+                }
             }
     }
 
