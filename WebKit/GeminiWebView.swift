@@ -117,7 +117,11 @@ struct GeminiWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            decisionHandler(origin.host.contains(GeminiWebView.Constants.trustedHost) ? .grant : .prompt)
+            let host = origin.host.lowercased()
+            let labels = host.split(separator: ".").reversed().map(String.init)
+            let trustedLabels = GeminiWebView.Constants.trustedHost.split(separator: ".").reversed().map(String.init)
+            let isValidDomain = labels.count >= trustedLabels.count && Array(labels.prefix(trustedLabels.count)) == trustedLabels
+            decisionHandler(isValidDomain && host.contains(GeminiWebView.Constants.trustedHost) ? .grant : .prompt)
         }
 
         func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
